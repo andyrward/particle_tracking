@@ -1,0 +1,26 @@
+[project]
+name = "particle-tracking"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "dotenv>=0.9.9",
+    "imageio>=2.37.2",
+    "ipywidgets>=8.1.8",
+    "jupyterlab>=4.5.1",
+    "matplotlib>=3.10.8",
+    "numpy>=2.4.0",
+    "opencv-python>=4.11.0.86",
+    "openrouter>=0.1.1",
+    "pandas>=2.3.3",
+    "pillow>=12.0.0",
+    "pims>=0.7",
+    "prompt>=0.4.1",
+    "pydantic-ai>=1.38.0",
+    "scikit-image>=0.26.0",
+    "scipy>=1.16.3",
+    "seaborn>=0.13.2",
+    "streamlit>=1.52.2",
+    "trackpy>=0.7",
+]
