@@ -18,7 +18,24 @@ def setup_detection_ui(stack, stack_shape):
         The image stack array (frames × height × width)
     stack_shape : tuple or None
         Shape of the stack (n_frames, height, width)
+        
+    Returns
+    -------
+    dict
+        Dictionary containing:
+        - 'tracks': DataFrame with tracked detections (or None)
+        - 'track_params': dict of parameters used for tracking (or None)
+        - 'last_detection': DataFrame from last single-frame detection (or None)
+        - 'detect_params': dict of parameters used for last detection (or None)
     """
+    
+    # Storage for results that will be returned
+    results = {
+        'tracks': None,
+        'track_params': None,
+        'last_detection': None,
+        'detect_params': None
+    }
     
     # Single-frame parameters as text inputs
     diameter_input = widgets.FloatText(
@@ -84,6 +101,7 @@ def setup_detection_ui(stack, stack_shape):
     # Buttons
     run_button = widgets.Button(description='Run Detection', button_style='success')
     track_button = widgets.Button(description='Track Frames', button_style='warning')
+    done_button = widgets.Button(description='Done & Return Results', button_style='info')
     
     # Output areas
     detection_output = widgets.Output()
@@ -174,6 +192,15 @@ def setup_detection_ui(stack, stack_shape):
                     print(f'X range: [{pts["x"].min():.1f}, {pts["x"].max():.1f}]')
                     print(f'Y range: [{pts["y"].min():.1f}, {pts["y"].max():.1f}]')
                     print(f'Mass range: [{pts["mass"].min():.0f}, {pts["mass"].max():.0f}]')
+                
+                # Store results and parameters
+                results['last_detection'] = pts
+                results['detect_params'] = {
+                    'diameter': diameter,
+                    'separation': separation,
+                    'minmass': minmass,
+                    'frame': frame_idx
+                }
             
             except Exception as e:
                 print(f'Error running detection: {str(e)}')
@@ -196,6 +223,7 @@ def setup_detection_ui(stack, stack_shape):
             
             try:
                 print(f'Tracking frames {start_frame} to {end_frame}...')
+                print(f'Parameters: diameter={diameter}, separation={separation}, minmass={minmass}')
                 tracks = track_frames(
                     stack,
                     start_frame=start_frame,
@@ -239,14 +267,54 @@ def setup_detection_ui(stack, stack_shape):
                     display(fig)
                     plt.close(fig)
                     plt.close('all')
+                
+                # Store results and parameters
+                results['tracks'] = tracks
+                results['track_params'] = {
+                    'diameter': diameter,
+                    'separation': separation,
+                    'minmass': minmass,
+                    'start_frame': start_frame,
+                    'end_frame': end_frame
+                }
             
             except Exception as e:
                 print(f'Error tracking frames: {str(e)}')
                 import traceback
                 traceback.print_exc()
     
+    def on_done_clicked(b):
+        """Hide UI and signal that results are ready."""
+        # Hide all UI elements
+        detection_params.layout.display = 'none'
+        tracking_params.layout.display = 'none'
+        
+        # Display summary in track_output
+        with track_output:
+            clear_output(wait=True)
+            print('='*60)
+            print('UI COMPLETED - Results stored and ready to use')
+            print('='*60)
+            
+            if results['tracks'] is not None:
+                print(f"\n✓ Tracked Results:")
+                print(f"  Frames: {len(results['tracks'])} detections")
+                print(f"  Parameters: {results['track_params']}")
+            else:
+                print(f"\n  No tracking results (Track Frames not run)")
+            
+            if results['last_detection'] is not None:
+                print(f"\n✓ Last Detection:")
+                print(f"  Frame {results['detect_params']['frame']}: {len(results['last_detection'])} particles")
+                print(f"  Parameters: {results['detect_params']}")
+            else:
+                print(f"\n  No detection results (Run Detection not run)")
+            
+            print(f"\nAccess results in notebook with: results['tracks'], results['track_params']")
+    
     run_button.on_click(on_run_clicked)
     track_button.on_click(on_track_clicked)
+    done_button.on_click(on_done_clicked)
     
     # Create parameter control panels side by side
     detection_params = widgets.VBox([
@@ -266,7 +334,9 @@ def setup_detection_ui(stack, stack_shape):
         widgets.HTML('<b>Multi-Frame Tracking:</b>'),
         start_frame_input,
         end_frame_input,
-        track_button
+        track_button,
+        widgets.HTML('<br><b>When finished:</b>'),
+        done_button
     ])
     
     display(widgets.HBox([detection_params, tracking_params]))
@@ -275,3 +345,5 @@ def setup_detection_ui(stack, stack_shape):
     display(detection_output)
     display(widgets.HTML('<b>Tracking Output:</b>'))
     display(track_output)
+    
+    return results

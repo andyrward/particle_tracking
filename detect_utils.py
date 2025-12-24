@@ -143,8 +143,10 @@ def track_frames(
             processes = os.cpu_count() or 1
         if verbose:
             print(f"Running tp.batch with {processes} processes...")
+        # Convert to float (same as detect_frame does for consistency)
+        sub_stack_float = sub_stack.astype(float)
         # tp.batch returns a DataFrame with columns: x, y, mass, signal, frame
-        out = tp.batch(sub_stack, diameter=diameter, minmass=minmass, separation=separation, processes=processes)
+        out = tp.batch(sub_stack_float, diameter=diameter, minmass=minmass, separation=separation, processes=processes)
         # adjust frame numbers to match original stack indices
         out['frame'] = out['frame'] + start_frame
         if verbose:
