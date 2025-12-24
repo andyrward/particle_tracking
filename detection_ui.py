@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import ipywidgets as widgets
 from IPython.display import display, clear_output
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 from detect import detect_frame
 from detect_utils import track_frames
@@ -143,45 +145,127 @@ def setup_detection_ui(stack, stack_shape):
                     minmass=minmass
                 )
                 
-                fig, axes = plt.subplots(2, 2, figsize=(16, 10), 
-                                          gridspec_kw={'width_ratios': [2, 1], 'height_ratios': [1, 1]})
+                # Create plotly subplots: image on top, 3 histograms below
+                fig = make_subplots(
+                    rows=2, cols=3,
+                    column_widths=[0.33, 0.33, 0.34],
+                    row_heights=[0.6, 0.4],
+                    subplot_titles=(
+                        f'Frame {frame_idx} - {len(pts)} particles detected', None, None,
+                        'Mass Distribution',
+                        'X Fractional Distribution',
+                        'Y Fractional Distribution'
+                    ),
+                    specs=[[{"type": "heatmap", "colspan": 3}, None, None],
+                           [{"type": "histogram"}, {"type": "histogram"}, {"type": "histogram"}]]
+                )
                 
-                # Image with detections (left, spanning both rows)
-                ax_img = axes[0, 0]
-                ax_img.imshow(frame, cmap='gray', vmin=vmin, vmax=vmax)
+                # Image with detections (top row, spanning all columns)
+                fig.add_trace(
+                    go.Heatmap(
+                        z=frame,
+                        colorscale='Gray',
+                        zmin=vmin,
+                        zmax=vmax,
+                        showscale=True,
+                        colorbar=dict(len=0.5, y=0.75)
+                    ),
+                    row=1, col=1
+                )
+                
+                # Overlay detected particles
                 if len(pts) > 0:
-                    ax_img.scatter(pts['x'], pts['y'], s=50, facecolors='none', edgecolors='lime', linewidth=2)
-                ax_img.set_title(f'Frame {frame_idx} - {len(pts)} particles detected')
-                ax_img.set_xlabel('X')
-                ax_img.set_ylabel('Y')
+                    fig.add_trace(
+                        go.Scatter(
+                            x=pts['x'],
+                            y=pts['y'],
+                            mode='markers',
+                            marker=dict(
+                                size=10,
+                                color='lime',
+                                line=dict(color='lime', width=2),
+                                symbol='circle-open'
+                            ),
+                            name='Detections',
+                            hovertemplate='x: %{x:.2f}<br>y: %{y:.2f}<extra></extra>'
+                        ),
+                        row=1, col=1
+                    )
                 
-                # X fractional distribution (top right)
-                ax_x = axes[0, 1]
+                # X fractional distribution (bottom middle)
                 if len(pts) > 0:
                     frac_x = np.mod(pts['x'].values, 1)
-                    ax_x.hist(frac_x, bins=40, edgecolor='black', alpha=0.7, color='steelblue')
-                    ax_x.axvline(0.5, color='r', linestyle='--', label='Expected (0.5)')
-                    ax_x.set_title(f'X fractional dist (mean={np.mean(frac_x):.3f})')
-                    ax_x.set_xlabel('Fractional part')
-                    ax_x.legend()
+                    fig.add_trace(
+                        go.Histogram(
+                            x=frac_x,
+                            nbinsx=40,
+                            marker_color='steelblue',
+                            marker_line_color='black',
+                            marker_line_width=1,
+                            name='X fractional',
+                            showlegend=False
+                        ),
+                        row=2, col=2
+                    )
+                    # Add expected line at 0.5
+                    fig.add_vline(
+                        x=0.5, line_dash="dash", line_color="red",
+                        annotation_text=f"mean={np.mean(frac_x):.3f}",
+                        row=2, col=2
+                    )
+                
+                # Mass distribution (bottom left)
+                if len(pts) > 0:
+                    fig.add_trace(
+                        go.Histogram(
+                            x=pts['mass'],
+                            nbinsx=40,
+                            marker_color='green',
+                            marker_line_color='black',
+                            marker_line_width=1,
+                            name='Mass',
+                            showlegend=False
+                        ),
+                        row=2, col=1
+                    )
                 
                 # Y fractional distribution (bottom right)
-                ax_y = axes[1, 1]
                 if len(pts) > 0:
                     frac_y = np.mod(pts['y'].values, 1)
-                    ax_y.hist(frac_y, bins=40, edgecolor='black', alpha=0.7, color='coral')
-                    ax_y.axvline(0.5, color='r', linestyle='--', label='Expected (0.5)')
-                    ax_y.set_title(f'Y fractional dist (mean={np.mean(frac_y):.3f})')
-                    ax_y.set_xlabel('Fractional part')
-                    ax_y.legend()
+                    fig.add_trace(
+                        go.Histogram(
+                            x=frac_y,
+                            nbinsx=40,
+                            marker_color='coral',
+                            marker_line_color='black',
+                            marker_line_width=1,
+                            name='Y fractional',
+                            showlegend=False
+                        ),
+                        row=2, col=3
+                    )
+                    # Add expected line at 0.5
+                    fig.add_vline(
+                        x=0.5, line_dash="dash", line_color="red",
+                        annotation_text=f"mean={np.mean(frac_y):.3f}",
+                        row=2, col=3
+                    )
                 
-                # Hide bottom left subplot
-                axes[1, 0].axis('off')
+                # Update layout
+                fig.update_xaxes(title_text="X (pixels)", scaleanchor='y', scaleratio=1, row=1, col=1)
+                fig.update_yaxes(title_text="Y (pixels)", autorange='reversed', row=1, col=1)
+                fig.update_xaxes(title_text="Mass", row=2, col=1)
+                fig.update_xaxes(title_text="Fractional part", row=2, col=2)
+                fig.update_xaxes(title_text="Fractional part", row=2, col=3)
                 
-                plt.tight_layout()
-                display(fig)
-                plt.close(fig)
-                plt.close('all')
+                fig.update_layout(
+                    height=800,
+                    width=1200,
+                    showlegend=False,
+                    hovermode='closest'
+                )
+                
+                fig.show()
                 
                 print(f'Detection Parameters:')
                 print(f'  Diameter: {diameter}')

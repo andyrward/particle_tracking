@@ -118,92 +118,36 @@ def setup_trajectory_ui(results, stack):
                 # Create figure
                 fig = go.Figure()
                 
-                # Add the grayscale image as background
-                fig.add_trace(go.Heatmap(
-                    z=stack[frame_idx],
-                    colorscale='Gray',
-                    showscale=False,
-                    hoverinfo='skip'
-                ))
+                # Get color palette
+                colors = px.colors.qualitative.Plotly + px.colors.qualitative.Set1
                 
-                # Get particles present in this frame
-                current_frame_data = linked[linked['frame'] == frame_idx]
+                # Plot all particle trajectories as lines
+                for particle_id in linked['particle'].unique():
+                    color = colors[int(particle_id) % len(colors)]
+                    
+                    # Get full trajectory for this particle
+                    particle_traj = linked[linked['particle'] == particle_id].sort_values('frame')
+                    
+                    # Plot entire trajectory as a line
+                    fig.add_trace(go.Scatter(
+                        x=particle_traj['x'],
+                        y=particle_traj['y'],
+                        mode='lines',
+                        line=dict(color=color, width=1),
+                        name=f'Particle {int(particle_id)}',
+                        hovertemplate=f'Particle {int(particle_id)}<br>x: %{{x:.2f}}<br>y: %{{y:.2f}}<extra></extra>'
+                    ))
                 
-                if len(current_frame_data) > 0:
-                    # Get color palette
-                    colors = px.colors.qualitative.Plotly + px.colors.qualitative.Set1
-                    
-                    # For each particle in current frame, plot its trail
-                    for idx, particle_id in enumerate(current_frame_data['particle'].unique()):
-                        color = colors[int(particle_id) % len(colors)]
-                        
-                        # Get trajectory for this particle
-                        particle_traj = linked[linked['particle'] == particle_id]
-                        
-                        # Get frames up to current (with trail length limit)
-                        trail_data = particle_traj[
-                            (particle_traj['frame'] <= frame_idx) & 
-                            (particle_traj['frame'] > frame_idx - trail)
-                        ].sort_values('frame')
-                        
-                        if len(trail_data) > 1:
-                            # Plot trail as a line
-                            fig.add_trace(go.Scatter(
-                                x=trail_data['x'],
-                                y=trail_data['y'],
-                                mode='lines',
-                                line=dict(color=color, width=2),
-                                name=f'Particle {int(particle_id)}',
-                                legendgroup=f'particle_{particle_id}',
-                                hovertemplate=f'Particle {int(particle_id)}<br>x: %{{x:.2f}}<br>y: %{{y:.2f}}<extra></extra>'
-                            ))
-                        
-                        # Plot current position as a marker
-                        current_pos = trail_data[trail_data['frame'] == frame_idx]
-                        if len(current_pos) > 0:
-                            hover_text = (f"Particle ID: {int(particle_id)}<br>"
-                                        f"x: {current_pos['x'].iloc[0]:.2f}<br>"
-                                        f"y: {current_pos['y'].iloc[0]:.2f}<br>"
-                                        f"mass: {current_pos['mass'].iloc[0]:.1f}<br>"
-                                        f"frame: {frame_idx}")
-                            
-                            fig.add_trace(go.Scatter(
-                                x=[current_pos['x'].iloc[0]],
-                                y=[current_pos['y'].iloc[0]],
-                                mode='markers+text' if show_ids else 'markers',
-                                marker=dict(
-                                    size=12,
-                                    color=color,
-                                    line=dict(color='white', width=2)
-                                ),
-                                text=[str(int(particle_id))] if show_ids else None,
-                                textposition='top center',
-                                textfont=dict(color='white', size=10),
-                                name=f'Particle {int(particle_id)}',
-                                legendgroup=f'particle_{particle_id}',
-                                showlegend=False,
-                                hovertext=hover_text,
-                                hoverinfo='text'
-                            ))
-                    
-                    print(f"✓ Displayed {len(current_frame_data)} particles in frame {frame_idx}")
-                else:
-                    print(f"⚠ No particles detected in frame {frame_idx}")
+                print(f"✓ Displayed {n_trajectories} particle trajectories")
                 
                 # Update layout
                 fig.update_layout(
-                    title=f'Particle Trajectories - Frame {frame_idx}',
+                    title=f'Particle Trajectories ({n_trajectories} particles)',
                     xaxis=dict(title='X (pixels)', scaleanchor='y', scaleratio=1),
                     yaxis=dict(title='Y (pixels)', autorange='reversed'),
                     width=900,
                     height=800,
-                    hovermode='closest',
-                    legend=dict(
-                        yanchor="top",
-                        y=0.99,
-                        xanchor="left",
-                        x=1.01
-                    )
+                    hovermode='closest'
                 )
                 
                 fig.show()
